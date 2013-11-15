@@ -16,8 +16,10 @@ def ext_pillar(minion_id, pillar, command):
     '''
     Execute a command and read the output as JSON
     '''
+    log.warning(command)
+    log.warning(minion_id)
     try:
-        return json.loads(__salt__['cmd.run'](command))
+        return json.loads(__salt__['cmd.run']( ' '.join([command, minion_id]) ))
     except Exception:
         log.critical(
                 'JSON data from {0} failed to parse'.format(command)

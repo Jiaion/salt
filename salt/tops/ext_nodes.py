@@ -26,6 +26,10 @@ import subprocess
 # Import third party libs
 import yaml
 
+import logging
+
+log = logging.getLogger(__name__)
+
 
 def __virtual__():
     '''
@@ -46,6 +50,8 @@ def top(**kwargs):
             __opts__['master_tops']['ext_nodes'],
             kwargs['opts']['id']
             )
+    log.warning(__opts__)
+    log.warning(cmd)
     ndata = yaml.safe_load(
             subprocess.Popen(
                 cmd,
