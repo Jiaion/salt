@@ -24,6 +24,9 @@ import yaml
 # Import salt libs
 import salt.utils
 from salt.exceptions import CommandExecutionError
+from salt.taobaomodules import yumhelp
+from salt.taobaomodules import branch as yumbranch
+
 
 # Import third party libs
 try:
@@ -616,6 +619,10 @@ def install(name=None,
     old = list_pkgs()
 
     yumbase = yum.YumBase()
+    conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
+                                    branch = kwargs.get('branch'), name=name,
+                                    fun=kwargs.get('fun'), yumbase=yumbase)
+    yumbranch.prereposetup_hook(conduit)
     setattr(yumbase.conf, 'assumeyes', True)
     setattr(yumbase.conf, 'gpgcheck', not skip_verify)
 
