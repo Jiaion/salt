@@ -258,6 +258,10 @@ def latest_version(*names, **kwargs):
         refresh_db()
 
     yumbase = yum.YumBase()
+    conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
+                                    branch = kwargs.get('branch'), name=name,
+                                    fun=kwargs.get('fun'), yumbase=yumbase)
+    yumbranch.prereposetup_hook(conduit)
     error = _set_repo_options(yumbase, **kwargs)
     if error:
         log.error(error)

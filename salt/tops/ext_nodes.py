@@ -50,8 +50,9 @@ def top(**kwargs):
             __opts__['master_tops']['ext_nodes'],
             kwargs['opts']['id']
             )
-    log.warning(__opts__)
-    log.warning(cmd)
+    log.debug(__opts__)
+    log.debug(kwargs)
+    log.debug(cmd)
     ndata = yaml.safe_load(
             subprocess.Popen(
                 cmd,

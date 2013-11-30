@@ -26,6 +26,8 @@ from salt.exceptions import (
     CommandExecutionError,
 )
 
+log = logging.getLogger(__name__)
+
 
 class Caller(object):
     '''
