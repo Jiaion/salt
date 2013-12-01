@@ -433,6 +433,9 @@ class Pillar(object):
                             ext = self.ext_pillars[key](pillar, val)
                         update(pillar, ext)
 
+                except AssertionError, e:
+                    raise AssertionError, e
+
                 except Exception as exc:
                     log.exception(
                             'Failed to load ext_pillar {0}: {1}'.format(

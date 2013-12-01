@@ -50,15 +50,15 @@ def top(**kwargs):
             __opts__['master_tops']['ext_nodes'],
             kwargs['opts']['id']
             )
-    log.debug(__opts__)
     log.debug(kwargs)
     log.debug(cmd)
-    ndata = yaml.safe_load(
-            subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE
-                ).communicate()[0])
+    popen = subprocess.Popen( cmd,
+                             shell=True,
+                             stdout=subprocess.PIPE)
+    outs, errs = popen.communicate()
+    retCode = popen.poll()
+    assert(retCode == 0)
+    ndata = yaml.safe_load(outs)
     ret = {}
     if 'environment' in ndata:
         env = ndata['environment']

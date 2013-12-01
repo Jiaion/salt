@@ -1,7 +1,15 @@
 #!/usr/bin/env python
+#-*- coding:UTF-8 -*-
 '''
 Execute a salt convenience routine
 '''
+import os
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "../packages")))
 
 from salt.scripts import salt_run
 

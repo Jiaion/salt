@@ -860,12 +860,14 @@ class AESFuncs(object):
                            '').format(self.opts['external_nodes']))
                 return {}
             cmd = '{0} {1}'.format(self.opts['external_nodes'], load['id'])
-            ndata = yaml.safe_load(
-                    subprocess.Popen(
-                        cmd,
-                        shell=True,
-                        stdout=subprocess.PIPE
-                        ).communicate()[0])
+            log.debug(cmd)
+            popen = subprocess.Popen( cmd,
+                                     shell=True,
+                                     stdout=subprocess.PIPE)
+            outs, errs = popen.communicate()
+            retCode = popen.poll()
+            assert(retCode == 0)
+            ndata = yaml.safe_load(outs)
             if 'environment' in ndata:
                 env = ndata['environment']
             else:
