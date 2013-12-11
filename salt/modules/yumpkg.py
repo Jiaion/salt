@@ -649,7 +649,7 @@ def install(name=None,
 
     old = list_pkgs()
 
-    yumbase = yum._YumBase()
+    yumbase = _YumBase()
     conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
                                     branch = kwargs.get('branch'), name=name,
                                     fun=kwargs.get('fun'), yumbase=yumbase)

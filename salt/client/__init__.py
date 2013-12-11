@@ -35,6 +35,7 @@ import glob
 import time
 import copy
 import getpass
+import logging
 
 # Import salt libs
 import salt.config
@@ -46,6 +47,8 @@ import salt.utils.minions
 import salt.syspaths as syspaths
 from salt.exceptions import SaltInvocationError
 from salt.exceptions import EauthAuthenticationError
+
+log = logging.getLogger(__name__)
 
 # Try to import range from https://github.com/ytoolshed/range
 HAS_RANGE = False
@@ -173,6 +176,7 @@ class LocalClient(object):
         '''
         Common checks on the pub_data data structure returned from running pub
         '''
+        log.debug(pub_data)
         if not pub_data:
             raise EauthAuthenticationError(
                 'Failed to authenticate, is this user permitted to execute '
