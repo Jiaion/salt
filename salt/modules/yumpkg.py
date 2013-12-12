@@ -24,8 +24,11 @@ import yaml
 # Import salt libs
 import salt.utils
 from salt.exceptions import CommandExecutionError
-from salt.taobaomodules import yumhelp
-from salt.taobaomodules import branch as yumbranch
+try :
+    from salt.taobaomodules import yumhelp
+    from salt.taobaomodules import branch as yumbranch
+except ImportError:
+    pass
 
 
 # Import third party libs
@@ -285,10 +288,11 @@ def latest_version(*names, **kwargs):
         refresh_db()
 
     yumbase = _YumBase()
-    conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
-                                    branch = kwargs.get('branch'), name=name,
-                                    fun=kwargs.get('fun'), yumbase=yumbase)
-    yumbranch.prereposetup_hook(conduit)
+    if globals().get('yumhelp'):
+        conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
+                                        branch = kwargs.get('branch'), name=name,
+                                        fun=kwargs.get('fun'), yumbase=yumbase)
+        yumbranch.prereposetup_hook(conduit)
     error = _set_repo_options(yumbase, **kwargs)
     if error:
         log.error(error)
@@ -415,6 +419,10 @@ def check_db(*names, **kwargs):
         salt '*' pkg.check_db <package1> <package2> <package3> fromrepo=epel-testing
     '''
     yumbase = _YumBase()
+    if globals().get('yumhelp'):
+        conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''), branch = kwargs.get('branch'),
+                                        fun=kwargs.get('fun'), yumbase=yumbase)
+        yumbranch.prereposetup_hook(conduit)
     error = _set_repo_options(yumbase, **kwargs)
     if error:
         log.error(error)
@@ -650,10 +658,11 @@ def install(name=None,
     old = list_pkgs()
 
     yumbase = _YumBase()
-    conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
-                                    branch = kwargs.get('branch'), name=name,
-                                    fun=kwargs.get('fun'), yumbase=yumbase)
-    yumbranch.prereposetup_hook(conduit)
+    if globals().get('yumhelp'):
+        conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
+                                        branch = kwargs.get('branch'), name=name,
+                                        fun=kwargs.get('fun'), yumbase=yumbase)
+        yumbranch.prereposetup_hook(conduit)
     setattr(yumbase.conf, 'assumeyes', True)
     setattr(yumbase.conf, 'gpgcheck', not skip_verify)
 

@@ -348,7 +348,10 @@ def check_db(*names, **kwargs):
         salt '*' pkg.check_db <package1> <package2> <package3> fromrepo=epel-testing
     '''
     repo_arg = _get_repo_options(**kwargs)
-    deplist_base = 'yum {0} deplist --quiet'.format(repo_arg) + ' {0!r}'
+    if kwargs.get('branch'):
+        deplist_base = 'yum {0} deplist --quiet'.format(repo_arg) + ' {0!r}' + ' -b ' + kwargs.get('branch')
+    else :
+        deplist_base = 'yum {0} deplist --quiet'.format(repo_arg) + ' {0!r}'
     repoquery_base = ('{0} -a --quiet --whatprovides --queryformat '
                       '{1!r}'.format(repo_arg, __QUERYFORMAT))
 
@@ -521,18 +524,20 @@ def install(name=None,
         targets = pkg_params
 
     if targets:
-        cmd = 'yum -y {repo} {gpgcheck} install {pkg}'.format(
+        cmd = 'yum -y {repo} {gpgcheck} install {pkg} {branch}'.format(
             repo=repo_arg,
             gpgcheck='--nogpgcheck' if skip_verify else '',
             pkg=' '.join(targets),
+            branch= '-b ' + kwargs.get('branch') if kwargs.get('branch') else ' '
         )
         __salt__['cmd.run_all'](cmd)
 
     if downgrade:
-        cmd = 'yum -y {repo} {gpgcheck} downgrade {pkg}'.format(
+        cmd = 'yum -y {repo} {gpgcheck} downgrade {pkg} {branch}'.format(
             repo=repo_arg,
             gpgcheck='--nogpgcheck' if skip_verify else '',
             pkg=' '.join(downgrade),
+            branch= '-b ' + kwargs.get('branch') if kwargs.get('branch') else ' '
         )
         __salt__['cmd.run_all'](cmd)
 

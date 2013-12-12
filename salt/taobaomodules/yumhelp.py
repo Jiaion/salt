@@ -21,7 +21,10 @@ class YumBranchHelp():
         self.opts = Opts()
         self.opts.branch = kwargs.get('branch')
         self.opts.comparch = kwargs.get('comparch')
-        self.command = [ kwargs.get('fun')[:-2], kwargs.get('name') ]
+        try :
+            self.command = [ kwargs.get('fun')[:-2], kwargs.get('name') ]
+        except :
+            self.command = ['','']
         self.yumbase = kwargs.get('yumbase')
     def getCmdLine(self):
         return self.opts, self.command
