@@ -288,7 +288,7 @@ def latest_version(*names, **kwargs):
         refresh_db()
 
     yumbase = _YumBase()
-    if globals().get('yumhelp'):
+    if globals().get('yumhelp') and kwargs.get('branch'):
         conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
                                         branch = kwargs.get('branch'), name=name,
                                         fun=kwargs.get('fun'), yumbase=yumbase)
@@ -419,7 +419,7 @@ def check_db(*names, **kwargs):
         salt '*' pkg.check_db <package1> <package2> <package3> fromrepo=epel-testing
     '''
     yumbase = _YumBase()
-    if globals().get('yumhelp'):
+    if globals().get('yumhelp') and kwargs.get('branch'):
         conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''), branch = kwargs.get('branch'),
                                         fun=kwargs.get('fun'), yumbase=yumbase)
         yumbranch.prereposetup_hook(conduit)
@@ -658,7 +658,7 @@ def install(name=None,
     old = list_pkgs()
 
     yumbase = _YumBase()
-    if globals().get('yumhelp'):
+    if globals().get('yumhelp') and kwargs.get('branch'):
         conduit = yumhelp.YumBranchHelp(comparch = __grains__.get('cpuarch', ''),
                                         branch = kwargs.get('branch'), name=name,
                                         fun=kwargs.get('fun'), yumbase=yumbase)
