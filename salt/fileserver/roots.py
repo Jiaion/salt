@@ -12,7 +12,7 @@ import logging
 
 try:
     import fcntl
-    HAS_FCNTL = True
+    HAS_FCNTL = os.uname()[0] != "SunOS"
 except ImportError:
     # fcntl is not available on windows
     HAS_FCNTL = False
@@ -165,16 +165,20 @@ def file_hash(load, fnd):
                     hsum, mtime = fp_.read().split(':')
                 except ValueError:
                     log.debug('Fileserver attempted to read incomplete cache file. Retrying.')
+                    # Delete the file since its incomplete (either corrupted or incomplete)
+                    os.unlink(cache_path)
                     file_hash(load, fnd)
-                    return(ret)
+                    return ret
                 if os.path.getmtime(path) == mtime:
                     # check if mtime changed
                     ret['hsum'] = hsum
                     return ret
         except os.error:  # Can't use Python select() because we need Windows support
             log.debug("Fileserver encountered lock when reading cache file. Retrying.")
+            # Delete the file since its incomplete (either corrupted or incomplete)
+            os.unlink(cache_path)
             file_hash(load, fnd)
-            return(ret)
+            return ret
 
     # if we don't have a cache entry-- lets make one
     ret['hsum'] = salt.utils.get_hash(path, __opts__['hash_type'])

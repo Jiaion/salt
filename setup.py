@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 '''
 The setup script for salt
 '''
@@ -384,8 +385,14 @@ if IS_WINDOWS_PLATFORM:
         'win32api',
         'win32file',
         'win32con',
+        'win32com',
+        'win32net',
+        'win32netcon',
+        'win32gui',
         'win32security',
         'ntsecuritycon',
+        'pywintypes',
+        'pythoncom',
         '_winreg',
         'wmi',
         'site',
@@ -396,6 +403,20 @@ elif sys.platform.startswith('linux'):
     try:
         import yum
         FREEZER_INCLUDES.append('yum')
+    except ImportError:
+        pass
+elif sys.platform.startswith('sunos'):
+    # (The sledgehammer approach)
+    # Just try to include everything
+    # (This may be a better way to generate FREEZER_INCLUDES generally)
+    try:
+        from bbfreeze.modulegraph.modulegraph import ModuleGraph
+        mf = ModuleGraph(sys.path[:])
+        for arg in glob.glob("salt/modules/*.py"):
+                mf.run_script(arg)
+        for mod in mf.flatten():
+            if type(mod).__name__ != "Script" and mod.filename:
+                FREEZER_INCLUDES.append(str(os.path.basename(mod.identifier)))
     except ImportError:
         pass
 

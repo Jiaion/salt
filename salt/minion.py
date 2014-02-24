@@ -4,6 +4,7 @@ Routines to set up a minion
 '''
 
 # Import python libs
+from __future__ import print_function
 import logging
 import getpass
 import multiprocessing
@@ -566,13 +567,39 @@ class Minion(object):
         '''
         {'aes': self._handle_aes,
          'pub': self._handle_pub,
-         'clear': self._handle_clear}[payload['enc']](payload['load'])
+         'clear': self._handle_clear}[payload['enc']](payload['load'],
+                                                      payload['sig'] if 'sig' in payload else None)
 
-    def _handle_aes(self, load):
+    def _handle_aes(self, load, sig=None):
         '''
-        Takes the AES encrypted load, decrypts it, and runs the encapsulated
-        instructions
+        Takes the AES encrypted load, checks the signature if pub signatures
+        are turned on, decrypts it, and runs the encapsulated instructions
         '''
+        # Verify that the signature is valid
+        master_pubkey_path = os.path.join(self.opts['pki_dir'], 'minion_master.pub')
+
+        # In other words, here's a table
+        # sign_pub_messages     signature present    signature verified    action
+        # true                  true                 true                  process msg
+        # true                  true                 false                 exception, post 0.17.6
+        # true                  false                N/A                   exception, post 0.17.6
+        # false                 true                 N/A                   exception, post 0.17.6
+        # false                 false                N/A                   process msg
+
+        if self.functions['config.get']('sign_pub_messages') and not sig:
+            salt.utils.warn_until((0, 17, 6), 'Master pub message signing is enabled but we '
+                'did not receive a signature for this message.  '
+                'Most likely this means that your masters and minions are not the same version.  '
+                'After Salt 0.17.6 this situation will throw an exception.')
+        if not self.functions['config.get']('sign_pub_messages') and not sig:
+            salt.utils.warn_until((0, 17, 6), 'Master pub message signing is disabled but we '
+                'received a signature for this message.  Most likely this means that your masters '
+                'and minions are not the same version.  '
+                'After Salt 0.17.6 this situation will throw an exception.')
+        if sig and self.functions['config.get']('sign_pub_messages'):
+            if not salt.crypt.verify_signature(master_pubkey_path, load, sig):
+                raise AuthenticationError('Message signature failed to validate.')
+
         try:
             data = self.crypticle.loads(load)
         except AuthenticationError:
@@ -585,6 +612,7 @@ class Minion(object):
 
             self.authenticate()
             data = self.crypticle.loads(load)
+
         # Verify that the publication is valid
         if 'tgt' not in data or 'jid' not in data or 'fun' not in data \
            or 'arg' not in data:
@@ -666,7 +694,6 @@ class Minion(object):
                 target=target, args=(instance, self.opts, data)
             )
         process.start()
-        process.join()
 
     @classmethod
     def _thread_return(cls, minion_instance, opts, data):
@@ -683,7 +710,7 @@ class Minion(object):
             salt.utils.daemonize_if(opts)
             sdata = {'pid': os.getpid()}
             sdata.update(data)
-            with salt.utils.fopen(fn_, 'w+') as fp_:
+            with salt.utils.fopen(fn_, 'w+b') as fp_:
                 fp_.write(minion_instance.serial.dumps(sdata))
         ret = {'success': False}
         function_name = data['fun']
@@ -857,7 +884,12 @@ class Minion(object):
         try:
             ret_val = sreq.send('aes', self.crypticle.dumps(load))
         except SaltReqTimeoutError:
-            ret_val = ''
+            msg = ('The minion failed to return the job information for job '
+                   '{0}. This is often due to the master being shut down or '
+                   'overloaded. If the master is running consider incresing '
+                   'the worker_threads value.').format(jid)
+            log.warn(msg)
+            return ''
         if isinstance(ret_val, string_types) and not ret_val:
             # The master AES key has changed, reauth
             self.authenticate()
@@ -872,7 +904,7 @@ class Minion(object):
             jdir = os.path.dirname(fn_)
             if not os.path.isdir(jdir):
                 os.makedirs(jdir)
-            salt.utils.fopen(fn_, 'w+').write(self.serial.dumps(ret))
+            salt.utils.fopen(fn_, 'w+b').write(self.serial.dumps(ret))
         return ret_val
 
     def _state_run(self):
@@ -1279,7 +1311,7 @@ class Syndic(Minion):
         opts['loop_interval'] = 1
         Minion.__init__(self, opts)
 
-    def _handle_aes(self, load):
+    def _handle_aes(self, load, sig=None):
         '''
         Takes the AES encrypted load, decrypts it, and runs the encapsulated
         instructions
@@ -1563,7 +1595,7 @@ class Matcher(object):
         '''
         if tgt not in self.functions:
             return False
-        return(self.functions[tgt]())
+        return self.functions[tgt]()
 
     def pillar_match(self, tgt, delim=':'):
         '''
@@ -1609,10 +1641,10 @@ class Matcher(object):
             range_ = seco.range.Range(self.opts['range_server'])
             try:
                 return self.opts['grains']['fqdn'] in range_.expand(tgt)
-            except seco.range.RangeException as e:
-                log.debug('Range exception in compound match: {0}'.format(e))
+            except seco.range.RangeException as exc:
+                log.debug('Range exception in compound match: {0}'.format(exc))
                 return False
-        return
+        return False
 
     def compound_match(self, tgt):
         '''

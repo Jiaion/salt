@@ -13,6 +13,14 @@ import logging
 # Import salt libs
 import salt.payload
 import salt.utils
+from salt.exceptions import CommandExecutionError
+
+HAS_RANGE = False
+try:
+    import seco.range
+    HAS_RANGE = True
+except ImportError:
+    pass
 
 log = logging.getLogger(__name__)
 
@@ -103,7 +111,7 @@ class CkMinions(object):
                 if not os.path.isfile(datap):
                     continue
                 grains = self.serial.load(
-                    salt.utils.fopen(datap)
+                    salt.utils.fopen(datap, 'rb')
                 ).get('grains')
                 if not salt.utils.subdict_match(grains, expr):
                     minions.remove(id_)
@@ -127,7 +135,7 @@ class CkMinions(object):
                 if not os.path.isfile(datap):
                     continue
                 grains = self.serial.load(
-                    salt.utils.fopen(datap)
+                    salt.utils.fopen(datap, 'rb')
                 ).get('grains')
                 if not salt.utils.subdict_match(grains, expr,
                                                 delim=':', regex_match=True):
@@ -152,7 +160,7 @@ class CkMinions(object):
                 if not os.path.isfile(datap):
                     continue
                 pillar = self.serial.load(
-                    salt.utils.fopen(datap)
+                    salt.utils.fopen(datap, 'rb')
                 ).get('pillar')
                 if not salt.utils.subdict_match(pillar, expr):
                     minions.remove(id_)
@@ -176,7 +184,7 @@ class CkMinions(object):
                 if not os.path.isfile(datap):
                     continue
                 grains = self.serial.load(
-                    salt.utils.fopen(datap)
+                    salt.utils.fopen(datap, 'rb')
                 ).get('grains')
 
                 num_parts = len(expr.split('/'))
@@ -200,6 +208,43 @@ class CkMinions(object):
                     else:
                         if not expr in grains.get('ipv4', []):
                             minions.remove(id_)
+        return list(minions)
+
+    def _check_range_minions(self, expr):
+        '''
+        Return the minions found by looking via range expression
+        '''
+        if not HAS_RANGE:
+            raise CommandExecutionError(
+                'Range matcher unavailble (unable to import seco.range, '
+                'module most likely not installed)'
+            )
+        minions = set(
+            os.listdir(os.path.join(self.opts['pki_dir'], 'minions'))
+        )
+        if self.opts.get('minion_data_cache', False):
+            cdir = os.path.join(self.opts['cachedir'], 'minions')
+            if not os.path.isdir(cdir):
+                return list(minions)
+            for id_ in os.listdir(cdir):
+                if id_ not in minions:
+                    continue
+                datap = os.path.join(cdir, id_, 'data.p')
+                if not os.path.isfile(datap):
+                    continue
+                grains = self.serial.load(
+                    salt.utils.fopen(datap, 'rb')
+                ).get('grains')
+
+                range_ = seco.range.Range(self.opts['range_server'])
+                try:
+                    if grains.get('fqdn', '') not in range_.expand(expr):
+                        minions.remove(id_)
+                except seco.range.RangeException as exc:
+                    log.debug(
+                        'Range exception in compound match: {0}'.format(exc)
+                    )
+                    minions.remove(id_)
         return list(minions)
 
     def _check_compound_minions(self, expr):
@@ -324,12 +369,13 @@ class CkMinions(object):
                        'pillar': self._check_pillar_minions,
                        'compound': self._check_compound_minions,
                        'ipcidr': self._check_ipcidr_minions,
+                       'range': self._check_range_minions,
                        }[expr_form](expr)
         except Exception:
             log.exception(
                     'Failed matching available minions with {0} pattern: {1}'
                     .format(expr_form, expr))
-            minions = expr
+            minions = []
         return minions
 
     def validate_tgt(self, valid, expr, expr_form):

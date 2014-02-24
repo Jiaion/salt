@@ -271,9 +271,12 @@ def highstate(test=None, queue=False, **kwargs):
 
     # Not 100% if this should be fatal or not,
     # but I'm guessing it likely should not be.
-    cumask = os.umask(191)
+    cumask = os.umask(077)
     try:
-        with salt.utils.fopen(cache_file, 'w+') as fp_:
+        if salt.utils.is_windows():
+            # Make sure cache file isn't read-only
+            __salt__['cmd.run']('attrib -R "{0}"'.format(cache_file))
+        with salt.utils.fopen(cache_file, 'w+b') as fp_:
             serial.dump(ret, fp_)
     except (IOError, OSError):
         msg = 'Unable to write to "state.highstate" cache file {0}'
@@ -333,7 +336,7 @@ def sls(mods, env='base', test=None, exclude=None, queue=False, **kwargs):
 
     if kwargs.get('cache'):
         if os.path.isfile(cfn):
-            with salt.utils.fopen(cfn, 'r') as fp_:
+            with salt.utils.fopen(cfn, 'rb') as fp_:
                 high_ = serial.load(fp_)
                 return st_.state.call_high(high_)
 
@@ -361,9 +364,12 @@ def sls(mods, env='base', test=None, exclude=None, queue=False, **kwargs):
     if __salt__['config.option']('state_data', '') == 'terse' or kwargs.get('terse'):
         ret = _filter_running(ret)
     cache_file = os.path.join(__opts__['cachedir'], 'sls.p')
-    cumask = os.umask(191)
+    cumask = os.umask(077)
     try:
-        with salt.utils.fopen(cache_file, 'w+') as fp_:
+        if salt.utils.is_windows():
+            # Make sure cache file isn't read-only
+            __salt__['cmd.run']('attrib -R "{0}"'.format(cache_file))
+        with salt.utils.fopen(cache_file, 'w+b') as fp_:
             serial.dump(ret, fp_)
     except (IOError, OSError):
         msg = 'Unable to write to "state.sls" cache file {0}'
@@ -373,7 +379,7 @@ def sls(mods, env='base', test=None, exclude=None, queue=False, **kwargs):
     # Work around Windows multiprocessing bug, set __opts__['test'] back to
     # value from before this function was run.
     __opts__['test'] = orig_test
-    with salt.utils.fopen(cfn, 'w+') as fp_:
+    with salt.utils.fopen(cfn, 'w+b') as fp_:
         try:
             serial.dump(high_, fp_)
         except TypeError:

@@ -214,7 +214,7 @@ class Master(SMaster):
                                 shutil.rmtree(f_path)
 
             if self.opts.get('publish_session'):
-                if now - rotate >= self.opts['publish_session'] * 60:
+                if now - rotate >= self.opts['publish_session']:
                     salt.crypt.dropfile(self.opts['cachedir'])
                     rotate = now
             if self.opts.get('search'):
@@ -230,6 +230,10 @@ class Master(SMaster):
                 log.error(
                     'Exception {0} occurred in file server update'.format(exc)
                 )
+
+            # check how close to FD limits you are
+            salt.utils.verify.check_max_open_files(self.opts)
+
             try:
                 schedule.eval()
                 # Check if scheduler requires lower loop interval than
@@ -963,7 +967,7 @@ class AESFuncs(object):
                     minion,
                     'mine.p')
             try:
-                with salt.utils.fopen(mine) as fp_:
+                with salt.utils.fopen(mine, 'rb') as fp_:
                     fdata = self.serial.load(fp_).get(load['fun'])
                     if fdata:
                         ret[minion] = fdata
@@ -1005,12 +1009,12 @@ class AESFuncs(object):
             datap = os.path.join(cdir, 'mine.p')
             if not load.get('clear', False):
                 if os.path.isfile(datap):
-                    with salt.utils.fopen(datap, 'r') as fp_:
+                    with salt.utils.fopen(datap, 'rb') as fp_:
                         new = self.serial.load(fp_)
                     if isinstance(new, dict):
                         new.update(load['data'])
                         load['data'] = new
-            with salt.utils.fopen(datap, 'w+') as fp_:
+            with salt.utils.fopen(datap, 'w+b') as fp_:
                 fp_.write(self.serial.dumps(load['data']))
         return True
 
@@ -1048,11 +1052,11 @@ class AESFuncs(object):
             datap = os.path.join(cdir, 'mine.p')
             if os.path.isfile(datap):
                 try:
-                    with salt.utils.fopen(datap, 'r') as fp_:
+                    with salt.utils.fopen(datap, 'rb') as fp_:
                         mine_data = self.serial.load(fp_)
                     if isinstance(mine_data, dict):
                         if mine_data.pop(load['fun'], False):
-                            with salt.utils.fopen(datap, 'w+') as fp_:
+                            with salt.utils.fopen(datap, 'w+b') as fp_:
                                 fp_.write(self.serial.dumps(mine_data))
                 except OSError:
                     return False
@@ -1172,7 +1176,7 @@ class AESFuncs(object):
             if not os.path.isdir(cdir):
                 os.makedirs(cdir)
             datap = os.path.join(cdir, 'data.p')
-            with salt.utils.fopen(datap, 'w+') as fp_:
+            with salt.utils.fopen(datap, 'w+b') as fp_:
                 fp_.write(
                         self.serial.dumps(
                             {'grains': load['grains'],
@@ -1277,7 +1281,7 @@ class AESFuncs(object):
             # Use atomic open here to avoid the file being read before it's
             # completely written to. Refs #1935
             salt.utils.atomicfile.atomic_open(
-                os.path.join(hn_dir, 'return.p'), 'w+'
+                os.path.join(hn_dir, 'return.p'), 'w+b'
             )
         )
         if 'out' in load:
@@ -1286,7 +1290,7 @@ class AESFuncs(object):
                 # Use atomic open here to avoid the file being read before
                 # it's completely written to. Refs #1935
                 salt.utils.atomicfile.atomic_open(
-                    os.path.join(hn_dir, 'out.p'), 'w+'
+                    os.path.join(hn_dir, 'out.p'), 'w+b'
                 )
             )
 
@@ -1309,11 +1313,11 @@ class AESFuncs(object):
         if not os.path.isdir(jid_dir):
             os.makedirs(jid_dir)
             if 'load' in load:
-                with salt.utils.fopen(os.path.join(jid_dir, '.load.p'), 'w+') as fp_:
+                with salt.utils.fopen(os.path.join(jid_dir, '.load.p'), 'w+b') as fp_:
                     self.serial.dump(load['load'], fp_)
         wtag = os.path.join(jid_dir, 'wtag_{0}'.format(load['id']))
         try:
-            with salt.utils.fopen(wtag, 'w+') as fp_:
+            with salt.utils.fopen(wtag, 'w+b') as fp_:
                 fp_.write('')
         except (IOError, OSError):
             log.error(
@@ -1778,15 +1782,13 @@ class ClearFuncs(object):
         This method fires an event over the master event manager. The event is
         tagged "auth" and returns a dict with information about the auth
         event
-        '''
-        # 0. Check for max open files
-        # 1. Verify that the key we are receiving matches the stored key
-        # 2. Store the key if it is not there
-        # 3. make an RSA key with the pub key
-        # 4. encrypt the AES key as an encrypted salt.payload
-        # 5. package the return and return it
 
-        salt.utils.verify.check_max_open_files(self.opts)
+        # Verify that the key we are receiving matches the stored key
+        # Store the key if it is not there
+        # Make an RSA key with the pub key
+        # Encrypt the AES key as an encrypted salt.payload
+        # Package the return and return it
+        '''
 
         if not salt.utils.verify.valid_id(self.opts, load['id']):
             log.info(
@@ -2039,7 +2041,7 @@ class ClearFuncs(object):
 
         try:
             name = self.loadauth.load_name(clear_load)
-            if not ((name in self.opts['external_auth'][clear_load['eauth']]) | ('*' in self.opts['external_auth'][clear_load['eauth']])):
+            if not (name in self.opts['external_auth'][clear_load['eauth']]) | ('*' in self.opts['external_auth'][clear_load['eauth']]):
                 msg = ('Authentication failure of type "eauth" occurred for '
                        'user {0}.').format(clear_load.get('username', 'UNKNOWN'))
                 log.warning(msg)
@@ -2119,11 +2121,12 @@ class ClearFuncs(object):
                     'user': token['name']}
             try:
                 self.event.fire_event(data, tagify([jid, 'new'], 'wheel'))
-                ret = self.wheel_.call_func(fun, **clear_load.get('kwarg', {}))
-                data['ret'] = ret
+                ret = self.wheel_.call_func(fun, **clear_load)
+                data['return'] = ret
                 data['success'] = True
                 self.event.fire_event(data, tagify([jid, 'ret'], 'wheel'))
-                return tag
+                return {'tag': tag,
+                        'data': data}
             except Exception as exc:
                 log.error(exc)
                 log.error('Exception occurred while '
@@ -2133,7 +2136,8 @@ class ClearFuncs(object):
                                             exc,
                                             )
                 self.event.fire_event(data, tagify([jid, 'ret'], 'wheel'))
-                return tag
+                return {'tag': tag,
+                        'data': data}
 
         if 'eauth' not in clear_load:
             msg = ('Authentication failure of type "eauth" occurred for '
@@ -2180,11 +2184,12 @@ class ClearFuncs(object):
                     'user': clear_load.get('username', 'UNKNOWN')}
             try:
                 self.event.fire_event(data, tagify([jid, 'new'], 'wheel'))
-                ret = self.wheel_.call_func(fun, **clear_load.get('kwarg', {}))
-                data['ret'] = ret
+                ret = self.wheel_.call_func(fun, **clear_load)
+                data['return'] = ret
                 data['success'] = True
                 self.event.fire_event(data, tagify([jid, 'ret'], 'wheel'))
-                return tag
+                return {'tag': tag,
+                        'data': data}
             except Exception as exc:
                 log.error('Exception occurred while '
                         'introspecting {0}: {1}'.format(fun, exc))
@@ -2193,7 +2198,8 @@ class ClearFuncs(object):
                                                             exc,
                                                             )
                 self.event.fire_event(data, tagify([jid, 'ret'], 'wheel'))
-                return tag
+                return {'tag': tag,
+                        'data': data}
 
         except Exception as exc:
             log.error(
@@ -2473,7 +2479,7 @@ class ClearFuncs(object):
         # Save the invocation information
         self.serial.dump(
                 clear_load,
-                salt.utils.fopen(os.path.join(jid_dir, '.load.p'), 'w+')
+                salt.utils.fopen(os.path.join(jid_dir, '.load.p'), 'w+b')
                 )
         if self.opts['ext_job_cache']:
             try:
@@ -2532,6 +2538,10 @@ class ClearFuncs(object):
         log.debug('Published command details {0}'.format(load))
 
         payload['load'] = self.crypticle.dumps(load)
+        if self.opts['sign_pub_messages']:
+            master_pem_path = os.path.join(self.opts['pki_dir'], 'master.pem')
+            log.debug("Signing data packet")
+            payload['sig'] = salt.crypt.sign_message(master_pem_path, payload['load'])
         # Send 0MQ to the publisher
         context = zmq.Context(1)
         pub_sock = context.socket(zmq.PUSH)

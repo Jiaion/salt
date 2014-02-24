@@ -698,6 +698,17 @@ def user_exists(user,
         salt '*' mysql.user_exists 'username' passwordless=True
     '''
     dbc = _connect(**connection_args)
+    # Did we fail to connect with the user we are checking
+    # Its password might have previousely change with the same command/state
+    if dbc is None \
+            and __context__['mysql.error'] \
+                .startswith("MySQL Error 1045: Access denied for user '{0}'@".format(user)) \
+            and password:
+        # Clear the previous error
+        __context__['mysql.error'] = None
+        log.info('Retrying with "{0}" as connection password for {1} ...'.format(password, user))
+        connection_args['connection_pass'] = password
+        dbc = _connect(**connection_args)
     if dbc is None:
         return False
 
@@ -1386,7 +1397,7 @@ def get_master_status(**connection_args):
     conn.close()
 
     # check for if this minion is not a master
-    if (len(rtnv) == 0):
+    if len(rtnv) == 0:
         rtnv.append([])
 
     log.debug('{0}-->{1}'.format(mod, len(rtnv[0])))
@@ -1454,7 +1465,7 @@ def get_slave_status(**connection_args):
     conn.close()
 
     # check for if this minion is not a slave
-    if (len(rtnv) == 0):
+    if len(rtnv) == 0:
         rtnv.append([])
 
     log.debug('{0}-->{1}'.format(mod, len(rtnv[0])))

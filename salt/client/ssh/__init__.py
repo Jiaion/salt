@@ -3,6 +3,7 @@
 Create ssh executor system
 '''
 # Import python libs
+from __future__ import print_function
 import os
 import tarfile
 import tempfile
@@ -449,7 +450,7 @@ class Single(object):
             refresh = True
         else:
             passed_time = (time.time() - os.stat(datap).st_mtime) / 60
-            if (passed_time > self.opts.get('cache_life', 60)):
+            if passed_time > self.opts.get('cache_life', 60):
                 refresh = True
         if self.opts.get('refresh_cache'):
             refresh = True
@@ -471,7 +472,7 @@ class Single(object):
             pillar_data = pillar.compile_pillar()
 
             # TODO: cache minion opts in datap in master.py
-            with salt.utils.fopen(datap, 'w+') as fp_:
+            with salt.utils.fopen(datap, 'w+b') as fp_:
                 fp_.write(
                         self.serial.dumps(
                             {'opts': opts_pkg,
@@ -479,7 +480,7 @@ class Single(object):
                                 'pillar': pillar_data}
                             )
                         )
-        with salt.utils.fopen(datap, 'r') as fp_:
+        with salt.utils.fopen(datap, 'rb') as fp_:
             data = self.serial.load(fp_)
         opts = data.get('opts', {})
         opts['grains'] = data.get('grains')

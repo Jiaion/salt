@@ -227,6 +227,7 @@ def present(name,
     homephone
         The user's home phone number (not supported in MacOS)
     '''
+    fullname = str(fullname) if fullname is not None else fullname
     roomnumber = str(roomnumber) if roomnumber is not None else roomnumber
     workphone = str(workphone) if workphone is not None else workphone
     homephone = str(homephone) if homephone is not None else homephone
@@ -418,7 +419,7 @@ def absent(name, purge=False, force=False):
                 [g['name'] for g in __salt__['group.getent'](refresh=True)])
         if ret['result']:
             ret['changes'] = {}
-            for g in (beforegroups - aftergroups):
+            for g in beforegroups - aftergroups:
                 ret['changes']['{0} group'.format(g)] = 'removed'
             ret['changes'][name] = 'removed'
             ret['comment'] = 'Removed user {0}'.format(name)

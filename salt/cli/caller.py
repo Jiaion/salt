@@ -5,6 +5,7 @@ minion modules.
 '''
 
 # Import python libs
+from __future__ import print_function
 import os
 import sys
 import logging
@@ -71,7 +72,7 @@ class Caller(object):
             args, kwargs = salt.minion.parse_args_and_kwargs(
                 self.minion.functions[fun], self.opts['arg'], data=sdata)
             try:
-                with salt.utils.fopen(proc_fn, 'w+') as fp_:
+                with salt.utils.fopen(proc_fn, 'w+b') as fp_:
                     fp_.write(self.serial.dumps(sdata))
             except NameError:
                 # Don't require msgpack with local
