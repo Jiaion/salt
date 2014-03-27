@@ -7,6 +7,7 @@ Print a stacktrace when sent a SIGUSR1 for debugging
 import os
 import sys
 import time
+import random
 import signal
 import tempfile
 import traceback
@@ -42,6 +43,64 @@ def _handle_sigusr1(sig, stack):
             _makepretty(output, stack)
 
 
+def _handle_sigusr2(sig, stack):
+    '''
+    Signal handler for SIGUSR2, only available on Unix-like systems
+    '''
+    try:
+        import yappi
+    except ImportError:
+        return
+    if yappi.is_running():
+        filename = 'callgrind.salt-{0}-{1}'.format(int(time.time()), os.getpid())
+        destfile = os.path.join(tempfile.gettempdir(), filename)
+        try :
+            fd = open(destfile, "a+")
+            yappi.get_func_stats().print_all(fd)
+            yappi.get_thread_stats().print_all(fd)
+            if sys.stderr.isatty():
+                sys.stderr.write('Saved profiling data to: {0}\n'.format(destfile))
+        except :
+            pass
+        finally :
+            fd.close()
+            yappi.stop()
+            yappi.clear_stats()
+    else:
+        if sys.stderr.isatty():
+            sys.stderr.write('Profiling started\n')
+        yappi.start()
+
+
+def _handle_sigmem(sig, stack):
+    '''
+    Signal handler for SIGUSR2, only available on Unix-like systems
+    '''
+    import gc
+    try :
+        import objgraph
+    except ImportError:
+        return 
+    try :
+        filename = 'mem.salt-{0}-{1}'.format(int(time.time()), os.getpid())
+        destfile = os.path.join(tempfile.gettempdir(), filename)
+        outs = []
+        outs.append('----gc----')
+        outs.append(gc.collect())
+        outs.append('\n')
+        outs.append('=' * 50)
+        outs.append('\n')
+        for t, n in objgraph.most_common_types(100):
+            outs.append('{0} {1}\n'.format(t,n))
+        outs.append('objgraph.by_type:\n')
+        #objgraph.show_backrefs(objgraph.by_type('tuple'), filename='chain.png')
+        with open(destfile, 'a+') as output:
+            for x in outs:
+                output.write(str(x))
+    except :
+        print traceback.format_exc()
+
+
 def enable_sig_handler(signal_name, handler):
     '''
     Add signal handler for signal name if it exists on given platform
@@ -60,6 +119,19 @@ def enable_sigusr1_handler():
     # which on BSD-deriviatives can be sent via Ctrl+T
     enable_sig_handler('SIGINFO', _handle_sigusr1)
 
+
+def enable_sigusr2_handler():
+    '''
+    Toggle YAPPI profiler
+    '''
+    enable_sig_handler('SIGUSR2', _handle_sigusr2)
+
+
+def enable_sigmem_handler():
+    '''
+    mem signal handler
+    '''
+    enable_sig_handler('SIGRTMAX', _handle_sigmem)
 
 def inspect_stack():
     '''
