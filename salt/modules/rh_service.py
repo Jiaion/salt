@@ -303,7 +303,7 @@ def available(name, limit=''):
         return _service_is_upstart(name) or _service_is_sysv(name)
 
 
-def start(name):
+def start(name, **kwargs):
     '''
     Start the specified service
 
@@ -317,10 +317,12 @@ def start(name):
         cmd = 'start {0}'.format(name)
     else:
         cmd = '/sbin/service {0} start'.format(name)
+    if kwargs.get('start'):
+        cmd = kwargs.get('start')
     return not __salt__['cmd.retcode'](cmd)
 
 
-def stop(name):
+def stop(name, **kwargs):
     '''
     Stop the specified service
 
@@ -334,10 +336,12 @@ def stop(name):
         cmd = 'stop {0}'.format(name)
     else:
         cmd = '/sbin/service {0} stop'.format(name)
+    if kwargs.get('stop'):
+        cmd = kwargs.get('stop')
     return not __salt__['cmd.retcode'](cmd)
 
 
-def restart(name):
+def restart(name, **kwargs):
     '''
     Restart the named service
 
@@ -351,10 +355,12 @@ def restart(name):
         cmd = 'restart {0}'.format(name)
     else:
         cmd = '/sbin/service {0} restart'.format(name)
+    if kwargs.get('restart'):
+        cmd = kwargs.get('restart')
     return not __salt__['cmd.retcode'](cmd)
 
 
-def reload_(name):
+def reload_(name, **kwargs):
     '''
     Reload the named service
 
@@ -368,10 +374,12 @@ def reload_(name):
         cmd = 'reload {0}'.format(name)
     else:
         cmd = '/sbin/service {0} reload'.format(name)
+    if kwargs.get('reloadcmd'):
+        cmd = kwargs.get('reloadcmd')
     return not __salt__['cmd.retcode'](cmd)
 
 
-def status(name, sig=None):
+def status(name, sig=None, **kwargs):
     '''
     Return the status for a service, returns a bool whether the service is
     running.
@@ -388,6 +396,8 @@ def status(name, sig=None):
     if sig:
         return bool(__salt__['status.pid'](sig))
     cmd = '/sbin/service {0} status'.format(name)
+    if kwargs.get('pattern'):
+        cmd = 'ps aux | egrep -v egrep | egrep {0}'.format(kwargs.get('pattern'))
     return __salt__['cmd.retcode'](cmd) == 0
 
 
