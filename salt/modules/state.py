@@ -20,6 +20,7 @@ import salt.state
 import salt.payload
 from salt._compat import string_types
 from salt.exceptions import SaltInvocationError
+from salt.utils.odict import OrderedDict
 
 
 __proxyenabled__ = ['*']
@@ -396,6 +397,39 @@ def sls(mods,
     st_.push_active()
     try:
         high_, errors = st_.render_highstate({saltenv: mods})
+
+        # add require other modules ..
+        requires = set()
+        def find_require(hi):
+            if isinstance(hi, dict):
+                for d in hi.values():
+                    find_require(d)
+
+            if isinstance(hi, OrderedDict):
+                for k, v in hi.items():
+                    if k == 'require':
+                        if isinstance(v, list):
+                            for x in v:
+                                if isinstance(x, OrderedDict):
+                                    if isinstance(x.items(), list):
+                                        for n in x.items():
+                                            r, m = n
+                                            if r == 'sls':
+                                                requires.add(m.split(".")[0])
+
+            if isinstance(hi, list):
+                for i in hi:  
+                    find_require(i)
+
+        find_require(high_)
+
+        nmods = []
+        for x in requires:
+            if x not in mods:
+                nmods.append(x)
+
+        uphigh_, errors = st_.render_highstate({saltenv: nmods})
+
 
         if errors:
             __context__['retcode'] = 1
