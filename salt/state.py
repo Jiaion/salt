@@ -1564,7 +1564,7 @@ class State(object):
         log.info('Completed state [{0}] at time {1}'.format(low['name'], finish_time.time().isoformat()))
         return ret
 
-    def call_chunks(self, chunks):
+    def call_chunks(self, chunks, **kwargs):
         '''
         Iterate over a list of chunks and call them, checking for requires.
         '''
@@ -1575,7 +1575,7 @@ class State(object):
                 return running
             tag = _gen_tag(low)
             if tag not in running:
-                running = self.call_chunk(low, running, chunks)
+                running = self.call_chunk(low, running, chunks, **kwargs)
                 if self.check_failhard(low, running):
                     return running
             self.active = set()
@@ -1706,7 +1706,7 @@ class State(object):
             preload = {'jid': self.jid}
             self.functions['event.fire_master'](ret, tag, preload=preload)
 
-    def call_chunk(self, low, running, chunks):
+    def call_chunk(self, low, running, chunks, **kwargs):
         '''
         Check if a chunk has any requires, execute the requires and then
         the chunk
@@ -1757,6 +1757,9 @@ class State(object):
                         lost[requisite].append(req)
             if lost['require'] or lost['watch'] or lost['prereq'] or lost['onfail'] or lost['onchanges'] or lost.get('prerequired'):
                 comment = 'The following requisites were not found:\n'
+                if kwargs.get('norealcall'):
+                    running['lost'] = lost
+                    return running
                 for requisite, lreqs in lost.items():
                     if not lreqs:
                         continue
@@ -1774,6 +1777,8 @@ class State(object):
                                 '__sls__': low['__sls__']}
                 self.__run_num += 1
                 self.event(running[tag], len(chunks))
+                return running
+            if kwargs.get('norealcall'):
                 return running
             for chunk in reqs:
                 # Check to see if the chunk has been run, only run it if
@@ -1815,6 +1820,8 @@ class State(object):
             if self.check_failhard(chunk, running):
                 running['__FAILHARD__'] = True
                 return running
+        elif kwargs.get('norealcall'):
+            return running
         elif status == 'met':
             if low.get('__prereq__'):
                 self.pre[tag] = self.call(low, chunks, running)

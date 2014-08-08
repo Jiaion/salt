@@ -399,37 +399,34 @@ def sls(mods,
         high_, errors = st_.render_highstate({saltenv: mods})
 
         # add require other modules ..
-        requires = set()
-        def find_require(hi):
-            if isinstance(hi, dict):
-                for d in hi.values():
-                    find_require(d)
+        log.debug('check require other modules')
 
-            if isinstance(hi, OrderedDict):
-                for k, v in hi.items():
-                    if k == 'require':
-                        if isinstance(v, list):
-                            for x in v:
-                                if isinstance(x, OrderedDict):
-                                    if isinstance(x.items(), list):
-                                        for n in x.items():
-                                            r, m = n
-                                            if r == 'sls':
-                                                requires.add(m.split(".")[0])
+        chunks = st_.state.compile_high_data(high_)
+        ret = st_.state.call_chunks(chunks, norealcall=True)
 
-            if isinstance(hi, list):
-                for i in hi:  
-                    find_require(i)
+        if ret.get('lost').get('require') :
+            requires = set()
+            req = ret.get('lost').get('require')
 
-        find_require(high_)
+            for item in req:
+                #k, v = None, None
+                #if isinstance(item, OrderedDict):
+                #    [ (k, v ) ] = item.items()
+                #elif isinstance(item, dict):
+                [ (k, v ) ] = item.items()
+                if k == 'sls' and v :
+                    requires.add(v.split(".")[0])
 
-        nmods = []
-        for x in requires:
-            if x not in mods:
-                nmods.append(x)
+            nmods = []
+            for x in requires:
+                if x not in mods:
+                    nmods.append(x)
 
-        uphigh_, errors = st_.render_highstate({saltenv: nmods})
+            log.info('other require modules {0}'.format(nmods))
+            if nmods :
+                uphigh_, errors = st_.render_highstate({saltenv: nmods})
 
+        ####
 
         if errors:
             __context__['retcode'] = 1
