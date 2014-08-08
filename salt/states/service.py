@@ -287,7 +287,7 @@ def running(name, enable=None, sig=None, **kwargs):
         return ret
 
     # See if the service is already running
-    if __salt__['service.status'](name, sig):
+    if __salt__['service.status'](name, sig, **kwargs):
         ret['comment'] = 'The service {0} is already running'.format(name)
         if enable is True:
             return _enable(name, None, **kwargs)
@@ -302,7 +302,7 @@ def running(name, enable=None, sig=None, **kwargs):
         ret['comment'] = 'Service {0} is set to start'.format(name)
         return ret
 
-    changes = {name: __salt__['service.start'](name)}
+    changes = {name: __salt__['service.start'](name, **kwargs)}
 
     if not changes[name]:
         if enable is True:
@@ -353,7 +353,7 @@ def dead(name, enable=None, sig=None, **kwargs):
         ret['result'] = True
         return ret
 
-    if not __salt__['service.status'](name, sig):
+    if not __salt__['service.status'](name, sig, **kwargs):
         ret['comment'] = 'The service {0} is already dead'.format(name)
         if enable is True:
             return _enable(name, None, **kwargs)
@@ -367,7 +367,7 @@ def dead(name, enable=None, sig=None, **kwargs):
         ret['comment'] = 'Service {0} is set to be killed'.format(name)
         return ret
 
-    ret['changes'] = {name: __salt__['service.stop'](name)}
+    ret['changes'] = {name: __salt__['service.stop'](name, **kwargs)}
 
     if not ret['changes'][name]:
         ret['result'] = False
@@ -416,7 +416,7 @@ def disabled(name, **kwargs):
     return _disable(name, None, **kwargs)
 
 
-def mod_watch(name, sfun=None, sig=None, reload=False, full_restart=False):
+def mod_watch(name, sfun=None, sig=None, reload=False, full_restart=False, **kwargs):
     '''
     The service watcher, called to invoke the watch command.
 
@@ -438,14 +438,14 @@ def mod_watch(name, sfun=None, sig=None, reload=False, full_restart=False):
     if sfun == 'dead':
         verb = 'stop'
         past_participle = verb + 'ped'
-        if __salt__['service.status'](name, sig):
+        if __salt__['service.status'](name, sig, **kwargs):
             func = __salt__['service.stop']
         else:
             ret['result'] = True
             ret['comment'] = 'Service is already {0}'.format(past_participle)
             return ret
     elif sfun == 'running':
-        if __salt__['service.status'](name, sig):
+        if __salt__['service.status'](name, sig, **kwargs):
             if 'service.reload' in __salt__ and reload:
                 func = __salt__['service.reload']
                 verb = 'reload'
@@ -468,7 +468,7 @@ def mod_watch(name, sfun=None, sig=None, reload=False, full_restart=False):
         ret['comment'] = 'Service is set to be {0}'.format(past_participle)
         return ret
 
-    result = func(name)
+    result = func(name, **kwargs)
 
     ret['changes'] = {name: result}
     ret['result'] = result

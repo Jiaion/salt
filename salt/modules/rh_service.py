@@ -339,7 +339,7 @@ def missing(name, limit=''):
             return True
 
 
-def start(name):
+def start(name, **kwargs):
     '''
     Start the specified service
 
@@ -351,12 +351,14 @@ def start(name):
     '''
     if _service_is_upstart(name):
         cmd = 'start {0}'.format(name)
+    elif kwargs.get('start'):
+        cmd = kwargs.get('start')
     else:
         cmd = '/sbin/service {0} start'.format(name)
     return not __salt__['cmd.retcode'](cmd)
 
 
-def stop(name):
+def stop(name, **kwargs):
     '''
     Stop the specified service
 
@@ -368,12 +370,14 @@ def stop(name):
     '''
     if _service_is_upstart(name):
         cmd = 'stop {0}'.format(name)
+    elif kwargs.get('stop') :
+        cmd = kwargs.get('stop')
     else:
         cmd = '/sbin/service {0} stop'.format(name)
     return not __salt__['cmd.retcode'](cmd)
 
 
-def restart(name):
+def restart(name, **kwargs):
     '''
     Restart the named service
 
@@ -385,12 +389,14 @@ def restart(name):
     '''
     if _service_is_upstart(name):
         cmd = 'restart {0}'.format(name)
+    elif kwargs.get('restart'):
+        cmd = kwargs.get('restart')
     else:
         cmd = '/sbin/service {0} restart'.format(name)
     return not __salt__['cmd.retcode'](cmd)
 
 
-def reload_(name):
+def reload_(name, **kwargs):
     '''
     Reload the named service
 
@@ -402,12 +408,14 @@ def reload_(name):
     '''
     if _service_is_upstart(name):
         cmd = 'reload {0}'.format(name)
+    elif kwargs.get('reloadcmd'):
+        cmd = kwargs.get('reloadcmd')
     else:
         cmd = '/sbin/service {0} reload'.format(name)
     return not __salt__['cmd.retcode'](cmd)
 
 
-def status(name, sig=None):
+def status(name, sig=None, **kwargs):
     '''
     Return the status for a service, returns a bool whether the service is
     running.
@@ -424,6 +432,8 @@ def status(name, sig=None):
     if sig:
         return bool(__salt__['status.pid'](sig))
     cmd = '/sbin/service {0} status'.format(name)
+    if kwargs.get('pattern'):
+        cmd = 'ps aux | egrep -v egrep | egrep {0}'.format(kwargs.get('pattern'))
     return __salt__['cmd.retcode'](cmd, ignore_retcode=True) == 0
 
 
