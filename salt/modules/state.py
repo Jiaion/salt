@@ -404,7 +404,7 @@ def sls(mods,
         chunks = st_.state.compile_high_data(high_)
         ret = st_.state.call_chunks(chunks, norealcall=True)
 
-        if ret.get('lost').get('require') :
+        if ret.get('lost') and ret.get('lost').get('require') :
             requires = set()
             req = ret.get('lost').get('require')
 
@@ -425,6 +425,9 @@ def sls(mods,
             log.info('other require modules {0}'.format(nmods))
             if nmods :
                 uphigh_, errors = st_.render_highstate({saltenv: nmods})
+
+            if uphigh_ :
+                high_.update(uphigh_)
 
         ####
 
